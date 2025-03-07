@@ -249,7 +249,7 @@ export default async function Home() {
               </ul>
 
               <Link
-                href="/dashboard"
+                href={user ? "/dashboard" : "/sign-in?redirect=/dashboard"}
                 className="block text-center py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
               >
                 Upgrade to Premium

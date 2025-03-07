@@ -18,6 +18,7 @@ import {
 import { redirect } from "next/navigation";
 import { createClient } from "../../../supabase/server";
 import Link from "next/link";
+import UpgradeButton from "@/components/upgrade-button";
 
 export default async function Dashboard() {
   const supabase = await createClient();
@@ -30,11 +31,21 @@ export default async function Dashboard() {
     return redirect("/sign-in");
   }
 
+  // Check if user has a subscription
+  const { data: subscriptionData } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .maybeSingle();
+
+  const hasActiveSubscription = !!subscriptionData;
+
   return (
     <>
       <DashboardNavbar />
       <main className="w-full bg-gray-50 min-h-screen">
-        <div className="container mx-auto px-4 py-8 flex flex-col gap-8">
+        <div className="container mx-auto px-4 py-8 pb-20 md:pb-8 flex flex-col gap-8">
           {/* Header Section */}
           <header className="flex flex-col gap-4">
             <h1 className="text-3xl font-bold">Welcome to Your Dashboard</h1>
@@ -110,62 +121,66 @@ export default async function Dashboard() {
             </Card>
           </section>
 
-          {/* Premium Upgrade */}
-          <section className="mt-4">
-            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100">
-              <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row items-center gap-6">
-                  <div className="flex-1">
-                    <h3 className="text-xl font-bold mb-2">
-                      Upgrade to Premium
-                    </h3>
-                    <p className="text-gray-600 mb-4">
-                      Get AI-powered resume enhancement, keyword optimization,
-                      and more with our premium service.
-                    </p>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex items-start gap-2">
-                        <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5">
-                          ✓
+          {/* Premium Upgrade - Only show if user doesn't have an active subscription */}
+          {!hasActiveSubscription && !user?.subscription && (
+            <section className="mt-4">
+              <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100">
+                <CardContent className="p-6">
+                  <div className="flex flex-col md:flex-row items-center gap-6">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold mb-2">
+                        Upgrade to Premium
+                      </h3>
+                      <p className="text-gray-600 mb-4">
+                        Get AI-powered resume enhancement, keyword optimization,
+                        and more with our premium service.
+                      </p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-start gap-2">
+                          <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5">
+                            ✓
+                          </div>
+                          <span className="text-sm">
+                            AI content enhancement
+                          </span>
                         </div>
-                        <span className="text-sm">AI content enhancement</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5">
-                          ✓
+                        <div className="flex items-start gap-2">
+                          <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5">
+                            ✓
+                          </div>
+                          <span className="text-sm">
+                            ATS keyword optimization
+                          </span>
                         </div>
-                        <span className="text-sm">
-                          ATS keyword optimization
-                        </span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5">
-                          ✓
+                        <div className="flex items-start gap-2">
+                          <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5">
+                            ✓
+                          </div>
+                          <span className="text-sm">
+                            Before & after comparison
+                          </span>
                         </div>
-                        <span className="text-sm">
-                          Before & after comparison
-                        </span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5">
-                          ✓
+                        <div className="flex items-start gap-2">
+                          <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5">
+                            ✓
+                          </div>
+                          <span className="text-sm">
+                            Downloadable enhanced CV
+                          </span>
                         </div>
-                        <span className="text-sm">
-                          Downloadable enhanced CV
-                        </span>
                       </div>
                     </div>
+                    <div className="flex-shrink-0 text-center">
+                      <div className="text-2xl font-bold mb-2">R299</div>
+                      <UpgradeButton className="bg-blue-600 hover:bg-blue-700 px-6">
+                        Upgrade Now
+                      </UpgradeButton>
+                    </div>
                   </div>
-                  <div className="flex-shrink-0 text-center">
-                    <div className="text-2xl font-bold mb-2">R299</div>
-                    <Button className="bg-blue-600 hover:bg-blue-700 px-6">
-                      Upgrade Now
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
+                </CardContent>
+              </Card>
+            </section>
+          )}
 
           {/* User Profile Section */}
           <section className="bg-white rounded-xl p-6 border shadow-sm mt-4">

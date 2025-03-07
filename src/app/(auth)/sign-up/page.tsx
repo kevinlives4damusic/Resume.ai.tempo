@@ -40,6 +40,19 @@ export default async function Signup(props: {
               </p>
             </div>
 
+            <GoogleAuth />
+
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-300"></span>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-card text-muted-foreground">
+                  Or sign up with email
+                </span>
+              </div>
+            </div>
+
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="full_name" className="text-sm font-medium">
@@ -90,10 +103,8 @@ export default async function Signup(props: {
               pendingText="Signing up..."
               className="w-full"
             >
-              Sign up
+              Sign up with Email
             </SubmitButton>
-
-            <GoogleAuth />
 
             <FormMessage message={searchParams} />
           </form>

@@ -16,10 +16,16 @@ import {
   CheckCircle,
   XCircle,
   Upload,
+  Loader2,
 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../../supabase/server";
 import Link from "next/link";
+import UpgradeButton from "@/components/upgrade-button";
+import ViewCVButton from "@/components/view-cv-button";
+import { analyzeResume } from "@/lib/resume-analyzer";
+import ResumeContentView from "./components/resume-content-view";
+import { extractResumeContent } from "@/lib/pdf-extractor";
 
 export default async function ResumeAnalysis() {
   const supabase = await createClient();
@@ -32,6 +38,16 @@ export default async function ResumeAnalysis() {
     return redirect("/sign-in");
   }
 
+  // Check if user has a subscription
+  const { data: subscriptionData } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .maybeSingle();
+
+  const hasActiveSubscription = !!subscriptionData;
+
   // Check if user has uploaded a resume
   const { data: resumeData, error: resumeError } = await supabase
     .from("resumes")
@@ -41,13 +57,31 @@ export default async function ResumeAnalysis() {
     .limit(1);
 
   const hasUploadedResume = resumeData && resumeData.length > 0;
+  const userResume = hasUploadedResume ? resumeData[0] : null;
+
+  // Get resume analysis if a resume exists
+  const resumeAnalysis = userResume ? await analyzeResume(userResume.id) : null;
+
+  // Extract content from the resume file
+  const extractedContent = userResume
+    ? await extractResumeContent(userResume.id)
+    : null;
+
+  // Get the file URL for viewing
+  let fileUrl = "";
+  if (userResume) {
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("resumes").getPublicUrl(userResume.file_path);
+    fileUrl = publicUrl;
+  }
 
   if (!hasUploadedResume) {
     return (
       <>
         <DashboardNavbar />
         <main className="w-full bg-gray-50 min-h-screen">
-          <div className="container mx-auto px-4 py-8 flex flex-col gap-8">
+          <div className="container mx-auto px-4 py-8 pb-20 md:pb-8 flex flex-col gap-8">
             <header className="flex flex-col gap-4">
               <h1 className="text-3xl font-bold">Resume Analysis</h1>
               <div className="bg-amber-50 text-sm p-4 rounded-lg text-amber-800 flex gap-2 items-center border border-amber-100">
@@ -84,16 +118,36 @@ export default async function ResumeAnalysis() {
     <>
       <DashboardNavbar />
       <main className="w-full bg-gray-50 min-h-screen">
-        <div className="container mx-auto px-4 py-8 flex flex-col gap-8">
+        <div className="container mx-auto px-4 py-8 pb-20 md:pb-8 flex flex-col gap-8">
           {/* Header Section */}
           <header className="flex flex-col gap-4">
             <h1 className="text-3xl font-bold">Resume Analysis</h1>
-            <div className="bg-secondary/50 text-sm p-3 px-4 rounded-lg text-muted-foreground flex gap-2 items-center">
-              <InfoIcon size="14" />
-              <span>
-                Here's a detailed analysis of your resume. Use these insights to
-                improve your CV.
-              </span>
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+              <div className="bg-secondary/50 text-sm p-3 px-4 rounded-lg text-muted-foreground flex gap-2 items-center flex-1">
+                <InfoIcon size="14" />
+                <span>
+                  {userResume ? (
+                    <>
+                      Here's a detailed analysis of your uploaded resume{" "}
+                      <strong>{userResume.file_name}</strong>. Use these
+                      insights to improve your CV.
+                    </>
+                  ) : (
+                    <>
+                      Here's a detailed analysis of your resume. Use these
+                      insights to improve your CV.
+                    </>
+                  )}
+                </span>
+              </div>
+
+              {userResume && (
+                <ResumeContentView
+                  resumeId={userResume.id}
+                  fileName={userResume.file_name}
+                  fileUrl={fileUrl}
+                />
+              )}
             </div>
           </header>
 
@@ -108,7 +162,13 @@ export default async function ResumeAnalysis() {
                 <div className="flex flex-col items-center">
                   <div className="relative w-24 h-24 mb-4">
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-2xl font-bold">68%</span>
+                      {resumeAnalysis ? (
+                        <span className="text-2xl font-bold">
+                          {resumeAnalysis.completenessScore}%
+                        </span>
+                      ) : (
+                        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                      )}
                     </div>
                     <svg className="w-full h-full" viewBox="0 0 36 36">
                       <path
@@ -119,19 +179,27 @@ export default async function ResumeAnalysis() {
                         stroke="#eee"
                         strokeWidth="3"
                       />
-                      <path
-                        d="M18 2.0845
-                          a 15.9155 15.9155 0 0 1 0 31.831
-                          a 15.9155 15.9155 0 0 1 0 -31.831"
-                        fill="none"
-                        stroke="#3b82f6"
-                        strokeWidth="3"
-                        strokeDasharray="68, 100"
-                      />
+                      {resumeAnalysis && (
+                        <path
+                          d="M18 2.0845
+                            a 15.9155 15.9155 0 0 1 0 31.831
+                            a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none"
+                          stroke="#3b82f6"
+                          strokeWidth="3"
+                          strokeDasharray={`${resumeAnalysis.completenessScore}, 100`}
+                        />
+                      )}
                     </svg>
                   </div>
                   <div className="text-sm text-gray-500">
-                    Good, but needs improvement
+                    {resumeAnalysis
+                      ? resumeAnalysis.completenessScore > 75
+                        ? "Good"
+                        : resumeAnalysis.completenessScore > 50
+                          ? "Needs some improvement"
+                          : "Needs significant improvement"
+                      : "Analyzing your resume..."}
                   </div>
                 </div>
               </CardContent>
@@ -147,23 +215,52 @@ export default async function ResumeAnalysis() {
                   <div>
                     <div className="flex justify-between mb-1 text-sm">
                       <span>Technical Skills</span>
-                      <span>75%</span>
+                      <span>
+                        {resumeAnalysis
+                          ? `${resumeAnalysis.skillsMatch.technical}%`
+                          : "..."}
+                      </span>
                     </div>
-                    <Progress value={75} className="h-2" />
+                    <Progress
+                      value={
+                        resumeAnalysis
+                          ? resumeAnalysis.skillsMatch.technical
+                          : 0
+                      }
+                      className="h-2"
+                    />
                   </div>
                   <div>
                     <div className="flex justify-between mb-1 text-sm">
                       <span>Soft Skills</span>
-                      <span>60%</span>
+                      <span>
+                        {resumeAnalysis
+                          ? `${resumeAnalysis.skillsMatch.soft}%`
+                          : "..."}
+                      </span>
                     </div>
-                    <Progress value={60} className="h-2" />
+                    <Progress
+                      value={
+                        resumeAnalysis ? resumeAnalysis.skillsMatch.soft : 0
+                      }
+                      className="h-2"
+                    />
                   </div>
                   <div>
                     <div className="flex justify-between mb-1 text-sm">
                       <span>Industry Keywords</span>
-                      <span>45%</span>
+                      <span>
+                        {resumeAnalysis
+                          ? `${resumeAnalysis.skillsMatch.keywords}%`
+                          : "..."}
+                      </span>
                     </div>
-                    <Progress value={45} className="h-2" />
+                    <Progress
+                      value={
+                        resumeAnalysis ? resumeAnalysis.skillsMatch.keywords : 0
+                      }
+                      className="h-2"
+                    />
                   </div>
                 </div>
               </CardContent>
@@ -178,7 +275,13 @@ export default async function ResumeAnalysis() {
                 <div className="flex flex-col items-center">
                   <div className="relative w-24 h-24 mb-4">
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-2xl font-bold">52%</span>
+                      {resumeAnalysis ? (
+                        <span className="text-2xl font-bold">
+                          {resumeAnalysis.atsScore}%
+                        </span>
+                      ) : (
+                        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                      )}
                     </div>
                     <svg className="w-full h-full" viewBox="0 0 36 36">
                       <path
@@ -189,19 +292,35 @@ export default async function ResumeAnalysis() {
                         stroke="#eee"
                         strokeWidth="3"
                       />
-                      <path
-                        d="M18 2.0845
-                          a 15.9155 15.9155 0 0 1 0 31.831
-                          a 15.9155 15.9155 0 0 1 0 -31.831"
-                        fill="none"
-                        stroke="#f59e0b"
-                        strokeWidth="3"
-                        strokeDasharray="52, 100"
-                      />
+                      {resumeAnalysis && (
+                        <path
+                          d="M18 2.0845
+                            a 15.9155 15.9155 0 0 1 0 31.831
+                            a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none"
+                          stroke={
+                            resumeAnalysis.atsScore > 70
+                              ? "#22c55e"
+                              : resumeAnalysis.atsScore > 50
+                                ? "#f59e0b"
+                                : "#ef4444"
+                          }
+                          strokeWidth="3"
+                          strokeDasharray={`${resumeAnalysis.atsScore}, 100`}
+                        />
+                      )}
                     </svg>
                   </div>
-                  <div className="text-sm text-amber-500">
-                    Needs significant improvement
+                  <div
+                    className={`text-sm ${resumeAnalysis ? (resumeAnalysis.atsScore > 70 ? "text-green-500" : resumeAnalysis.atsScore > 50 ? "text-amber-500" : "text-red-500") : "text-gray-500"}`}
+                  >
+                    {resumeAnalysis
+                      ? resumeAnalysis.atsScore > 70
+                        ? "Good ATS compatibility"
+                        : resumeAnalysis.atsScore > 50
+                          ? "Needs some improvement"
+                          : "Needs significant improvement"
+                      : "Analyzing your resume..."}
                   </div>
                 </div>
               </CardContent>
@@ -211,11 +330,22 @@ export default async function ResumeAnalysis() {
           {/* Detailed Analysis */}
           <section>
             <Tabs defaultValue="overview">
-              <TabsList className="grid w-full grid-cols-4 mb-8">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="content">Content Analysis</TabsTrigger>
-                <TabsTrigger value="format">Format & Structure</TabsTrigger>
-                <TabsTrigger value="suggestions">Improvement Tips</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 mb-8 gap-1">
+                <TabsTrigger value="overview" className="text-xs md:text-sm">
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="content" className="text-xs md:text-sm">
+                  Content
+                </TabsTrigger>
+                <TabsTrigger value="format" className="text-xs md:text-sm">
+                  Format
+                </TabsTrigger>
+                <TabsTrigger value="portrait" className="text-xs md:text-sm">
+                  Photo
+                </TabsTrigger>
+                <TabsTrigger value="suggestions" className="text-xs md:text-sm">
+                  Tips
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="space-y-6">
@@ -233,19 +363,28 @@ export default async function ResumeAnalysis() {
                         <ul className="space-y-2">
                           <li className="flex items-start gap-2">
                             <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                            <span>
-                              Good educational background clearly presented
-                            </span>
+                            <div className="flex flex-col">
+                              <span>
+                                Good educational background clearly presented
+                              </span>
+                              <ViewCVButton section="Education section" />
+                            </div>
                           </li>
                           <li className="flex items-start gap-2">
                             <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                            <span>
-                              Contact information is complete and professional
-                            </span>
+                            <div className="flex flex-col">
+                              <span>
+                                Contact information is complete and professional
+                              </span>
+                              <ViewCVButton section="Header section" />
+                            </div>
                           </li>
                           <li className="flex items-start gap-2">
                             <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                            <span>Technical skills are well highlighted</span>
+                            <div className="flex flex-col">
+                              <span>Technical skills are well highlighted</span>
+                              <ViewCVButton section="Skills section" />
+                            </div>
                           </li>
                         </ul>
                       </div>
@@ -257,26 +396,58 @@ export default async function ResumeAnalysis() {
                         <ul className="space-y-2">
                           <li className="flex items-start gap-2">
                             <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                            <span>
-                              Work experience lacks quantifiable achievements
-                            </span>
+                            <div className="flex flex-col">
+                              <span>
+                                Work experience lacks quantifiable achievements
+                              </span>
+                              <ViewCVButton section="Experience section" />
+                            </div>
                           </li>
                           <li className="flex items-start gap-2">
                             <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                            <span>
-                              Missing industry-specific keywords for ATS
-                              optimization
-                            </span>
+                            <div className="flex flex-col">
+                              <span>
+                                Missing industry-specific keywords for ATS
+                                optimization
+                              </span>
+                              <ViewCVButton section="All sections" />
+                            </div>
                           </li>
                           <li className="flex items-start gap-2">
                             <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                            <span>Professional summary is too generic</span>
+                            <div className="flex flex-col">
+                              <span>Professional summary is too generic</span>
+                              <ViewCVButton section="Summary section" />
+                            </div>
                           </li>
                         </ul>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
+
+                {!subscriptionData && (
+                  <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100">
+                    <CardContent className="p-6">
+                      <div className="flex flex-col md:flex-row items-center gap-6">
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold mb-2">
+                            Upgrade to Premium
+                          </h3>
+                          <p className="text-gray-600 mb-4">
+                            Get AI-powered resume enhancement and personalized
+                            improvement suggestions.
+                          </p>
+                        </div>
+                        <div className="flex-shrink-0">
+                          <UpgradeButton className="bg-blue-600 hover:bg-blue-700 px-6">
+                            Upgrade Now - R299
+                          </UpgradeButton>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
 
               <TabsContent value="content" className="space-y-6">
@@ -295,8 +466,8 @@ export default async function ResumeAnalysis() {
                         </h3>
                         <div className="p-4 bg-gray-50 rounded-lg mb-2">
                           <p className="text-gray-700 italic">
-                            "Dedicated professional with 5+ years of experience
-                            seeking opportunities to apply my skills..."
+                            {extractedContent?.sections.summary ||
+                              '"Dedicated professional with 5+ years of experience seeking opportunities to apply my skills..."'}
                           </p>
                         </div>
                         <div className="flex items-start gap-2 text-amber-600">
@@ -376,6 +547,29 @@ export default async function ResumeAnalysis() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {!subscriptionData && (
+                  <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100">
+                    <CardContent className="p-6">
+                      <div className="flex flex-col md:flex-row items-center gap-6">
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold mb-2">
+                            Enhance Your Content
+                          </h3>
+                          <p className="text-gray-600 mb-4">
+                            Our AI can rewrite your content to be more impactful
+                            and ATS-friendly.
+                          </p>
+                        </div>
+                        <div className="flex-shrink-0">
+                          <UpgradeButton className="bg-blue-600 hover:bg-blue-700 px-6">
+                            Get Premium
+                          </UpgradeButton>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
 
               <TabsContent value="format" className="space-y-6">
@@ -493,6 +687,136 @@ export default async function ResumeAnalysis() {
                             </p>
                           </div>
                         </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="portrait" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Profile Photo Analysis</CardTitle>
+                    <CardDescription>
+                      Assessment of your CV portrait photo and recommendations
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-col md:flex-row gap-8">
+                      <div className="md:w-1/3">
+                        {extractedContent?.hasPhoto ? (
+                          <>
+                            <div className="border rounded-lg overflow-hidden mb-4">
+                              <img
+                                src={
+                                  extractedContent.photoUrl ||
+                                  "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400&q=80"
+                                }
+                                alt="Current profile photo"
+                                className="w-full h-auto"
+                              />
+                            </div>
+                            <p className="text-sm text-center text-gray-500">
+                              Current profile photo from your CV
+                            </p>
+                          </>
+                        ) : (
+                          <div className="border rounded-lg p-8 text-center mb-4 bg-gray-50">
+                            <FileText className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                            <h3 className="text-lg font-medium mb-2">
+                              No Photo Detected
+                            </h3>
+                            <p className="text-gray-500 mb-4">
+                              We couldn't find a profile photo in your resume.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="md:w-2/3 space-y-6">
+                        <div>
+                          <h3 className="text-lg font-medium mb-2">
+                            Photo Assessment
+                          </h3>
+                          <ul className="space-y-3">
+                            <li className="flex items-start gap-2">
+                              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                              <span>Professional attire is appropriate</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                              <span>
+                                Neutral background helps you stand out
+                              </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                              <span>
+                                Lighting is slightly uneven, creating shadows
+                              </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                              <span>Image resolution could be improved</span>
+                            </li>
+                          </ul>
+                        </div>
+
+                        <div>
+                          <h3 className="text-lg font-medium mb-2">
+                            Recommendations
+                          </h3>
+                          <ul className="space-y-3">
+                            <li className="flex items-start gap-2">
+                              <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5">
+                                1
+                              </div>
+                              <span>
+                                Use soft, diffused lighting from the front to
+                                eliminate shadows
+                              </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5">
+                                2
+                              </div>
+                              <span>
+                                Ensure the photo is high resolution (at least
+                                400x400 pixels)
+                              </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5">
+                                3
+                              </div>
+                              <span>
+                                Position yourself to take up about 60% of the
+                                frame (head and shoulders)
+                              </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5">
+                                4
+                              </div>
+                              <span>
+                                Consider a more confident, approachable
+                                expression
+                              </span>
+                            </li>
+                          </ul>
+                        </div>
+
+                        {!subscriptionData && (
+                          <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                            <p className="text-sm text-blue-800 mb-2">
+                              <strong>Premium Feature:</strong> Upgrade to get
+                              AI-enhanced professional portrait editing
+                            </p>
+                            <UpgradeButton className="bg-blue-600 hover:bg-blue-700 text-sm">
+                              Enhance My Portrait Photo
+                            </UpgradeButton>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -631,11 +955,13 @@ export default async function ResumeAnalysis() {
                   </CardContent>
                 </Card>
 
-                <div className="flex justify-center mt-8">
-                  <Button className="bg-blue-600 hover:bg-blue-700 px-8">
-                    Upgrade to Premium for AI-Enhanced Resume
-                  </Button>
-                </div>
+                {!subscriptionData && (
+                  <div className="flex justify-center mt-8 mb-16 md:mb-0">
+                    <UpgradeButton className="bg-blue-600 hover:bg-blue-700 px-8">
+                      Upgrade to Premium for AI-Enhanced Resume
+                    </UpgradeButton>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </section>

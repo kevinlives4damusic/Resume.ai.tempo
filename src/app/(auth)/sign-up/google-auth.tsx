@@ -19,21 +19,10 @@ export default function GoogleAuth() {
 
   return (
     <>
-      <div className="relative my-4">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-gray-300"></span>
-        </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-card text-muted-foreground">
-            Or continue with
-          </span>
-        </div>
-      </div>
-
       <Button
         type="button"
         variant="outline"
-        className="w-full flex items-center justify-center gap-2"
+        className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-800 border border-gray-300"
         onClick={handleGoogleSignIn}
       >
         <svg

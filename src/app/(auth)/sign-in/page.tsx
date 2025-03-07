@@ -41,6 +41,19 @@ export default async function SignInPage({ searchParams }: LoginProps) {
               </p>
             </div>
 
+            <GoogleAuth />
+
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-300"></span>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-card text-muted-foreground">
+                  Or sign in with email
+                </span>
+              </div>
+            </div>
+
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium">
@@ -84,10 +97,8 @@ export default async function SignInPage({ searchParams }: LoginProps) {
               pendingText="Signing in..."
               formAction={signInAction}
             >
-              Sign in
+              Sign in with Email
             </SubmitButton>
-
-            <GoogleAuth />
 
             <FormMessage message={message} />
           </form>
