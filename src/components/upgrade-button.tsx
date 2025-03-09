@@ -19,28 +19,12 @@ export default function UpgradeButton({
     try {
       setIsLoading(true);
       console.log("Initiating checkout process...");
-      const response = await fetch("/api/create-checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
 
-      const responseData = await response.json();
-      console.log("Checkout response:", responseData);
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to create checkout session: ${responseData.error || "Unknown error"}`,
-        );
-      }
-
-      if (responseData.url) {
-        console.log("Redirecting to:", responseData.url);
-        window.location.href = responseData.url;
-      } else {
-        throw new Error("No checkout URL returned from server");
-      }
+      // Firebase implementation would go here
+      // For now, we'll just show a message
+      alert(
+        "Payment processing is being implemented with Firebase. Please check back soon!",
+      );
     } catch (error) {
       console.error("Error initiating checkout:", error);
       alert(

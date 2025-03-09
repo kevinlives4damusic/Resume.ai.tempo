@@ -19,7 +19,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../supabase/server";
+import { getCurrentUser } from "@/lib/auth";
+import { getUserResumes, getResumeAnalysis } from "@/lib/db";
 import Link from "next/link";
 import UpgradeButton from "@/components/upgrade-button";
 import ViewCVButton from "@/components/view-cv-button";
@@ -29,39 +30,26 @@ import React from "react";
 import { extractResumeContent } from "@/lib/pdf-extractor";
 
 export default async function ResumeAnalysis() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = getCurrentUser();
 
   if (!user) {
     return redirect("/sign-in");
   }
 
   // Check if user has a subscription
-  const { data: subscriptionData } = await supabase
-    .from("subscriptions")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .maybeSingle();
-
+  const subscriptionData = await getUserSubscription(user.uid);
   const hasActiveSubscription = !!subscriptionData;
 
   // Check if user has uploaded a resume
-  const { data: resumeData, error: resumeError } = await supabase
-    .from("resumes")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(1);
+  const resumeData = await getUserResumes(user.uid);
 
   const hasUploadedResume = resumeData && resumeData.length > 0;
   const userResume = hasUploadedResume ? resumeData[0] : null;
 
   // Get resume analysis if a resume exists
-  const resumeAnalysis = userResume ? await analyzeResume(userResume.id) : null;
+  const resumeAnalysis = userResume
+    ? await getResumeAnalysis(userResume.id, user.uid)
+    : null;
 
   // Extract content from the resume file
   const extractedContent = userResume
@@ -69,13 +57,7 @@ export default async function ResumeAnalysis() {
     : null;
 
   // Get the file URL for viewing
-  let fileUrl = "";
-  if (userResume) {
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("resumes").getPublicUrl(userResume.file_path);
-    fileUrl = publicUrl;
-  }
+  let fileUrl = userResume ? userResume.file_url || "" : "";
 
   if (!hasUploadedResume) {
     return (

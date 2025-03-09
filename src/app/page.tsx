@@ -9,15 +9,12 @@ import {
   Upload,
   Shield,
 } from "lucide-react";
-import { createClient } from "../../supabase/server";
+import { getCurrentUser } from "@/lib/auth";
 import Link from "next/link";
 import Image from "next/image";
 
-export default async function Home() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export default function Home() {
+  const user = getCurrentUser();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">

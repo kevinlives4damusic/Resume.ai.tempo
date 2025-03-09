@@ -1,15 +1,13 @@
+"use client";
+
 import Link from "next/link";
-import { createClient } from "../../supabase/server";
 import { Button } from "./ui/button";
-import { FileText, UserCircle } from "lucide-react";
+import { FileText } from "lucide-react";
 import UserProfile from "./user-profile";
+import { useAuth } from "./auth-provider";
 
-export default async function Navbar() {
-  const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await (await supabase).auth.getUser();
+export default function Navbar() {
+  const { user, loading } = useAuth();
 
   return (
     <nav className="w-full border-b border-gray-200 bg-white/80 backdrop-blur-md py-4 sticky top-0 z-50">
@@ -39,7 +37,7 @@ export default async function Navbar() {
           </Link>
         </div>
         <div className="flex gap-4 items-center">
-          {user ? (
+          {!loading && user ? (
             <>
               <Link
                 href="/dashboard"

@@ -1,3 +1,5 @@
+"use client";
+
 import DashboardNavbar from "@/components/dashboard-navbar";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,31 +17,45 @@ import {
   FileText,
   ArrowUpRight,
 } from "lucide-react";
-import { redirect } from "next/navigation";
-import { createClient } from "../../../supabase/server";
+import { redirect, useRouter } from "next/navigation";
 import Link from "next/link";
 import UpgradeButton from "@/components/upgrade-button";
+import { useAuth } from "@/components/auth-provider";
+import { useEffect, useState } from "react";
+import { getUserSubscription } from "@/lib/db";
 
-export default async function Dashboard() {
-  const supabase = await createClient();
+export default function Dashboard() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  useEffect(() => {
+    if (!user && !loading) {
+      router.push("/sign-in");
+    }
 
-  if (!user) {
-    return redirect("/sign-in");
+    // Check if user has a subscription
+    const checkSubscription = async () => {
+      if (user) {
+        try {
+          const subscriptionData = await getUserSubscription(user.uid);
+          setHasActiveSubscription(!!subscriptionData);
+        } catch (error) {
+          console.error("Error checking subscription:", error);
+        }
+      }
+    };
+
+    checkSubscription();
+  }, [user, loading, router]);
+
+  if (loading) {
+    return <div>Loading...</div>;
   }
 
-  // Check if user has a subscription
-  const { data: subscriptionData } = await supabase
-    .from("subscriptions")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .maybeSingle();
-
-  const hasActiveSubscription = !!subscriptionData;
+  if (!user) {
+    return null; // Will redirect in useEffect
+  }
 
   return (
     <>
@@ -122,7 +138,7 @@ export default async function Dashboard() {
           </section>
 
           {/* Premium Upgrade - Only show if user doesn't have an active subscription */}
-          {!hasActiveSubscription && !user?.subscription && (
+          {!hasActiveSubscription && (
             <section className="mt-4">
               <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100">
                 <CardContent className="p-6">
@@ -201,7 +217,7 @@ export default async function Dashboard() {
                     <div className="text-gray-500">Email:</div>
                     <div>{user.email}</div>
                     <div className="text-gray-500">User ID:</div>
-                    <div className="truncate">{user.id}</div>
+                    <div className="truncate">{user.uid}</div>
                     <div className="text-gray-500">Account Type:</div>
                     <div>Free Plan</div>
                   </div>

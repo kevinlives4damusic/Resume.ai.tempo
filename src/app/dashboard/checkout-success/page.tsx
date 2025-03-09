@@ -4,14 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../supabase/server";
+import { getCurrentUser } from "@/lib/auth";
 
 export default async function CheckoutSuccessPage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = getCurrentUser();
 
   if (!user) {
     return redirect("/sign-in");

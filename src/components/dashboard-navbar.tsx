@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { createClient } from "../../supabase/client";
+import { signOutUser } from "@/lib/auth";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +20,6 @@ import {
 import { useRouter, usePathname } from "next/navigation";
 
 export default function DashboardNavbar() {
-  const supabase = createClient();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -94,7 +93,7 @@ export default function DashboardNavbar() {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={async () => {
-                  await supabase.auth.signOut();
+                  await signOutUser();
                   router.refresh();
                 }}
               >

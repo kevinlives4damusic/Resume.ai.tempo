@@ -19,7 +19,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../supabase/client";
+import { useAuth } from "@/components/auth-provider";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -27,9 +27,9 @@ import UpgradeButton from "@/components/upgrade-button";
 import FileProcessor from "./components/file-processor";
 
 export default function UploadResume() {
-  const supabase = createClient();
+  const { user: authUser } = useAuth();
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(authUser);
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -40,15 +40,19 @@ export default function UploadResume() {
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data.user) {
-        setUser(data.user);
-      } else {
-        router.push("/sign-in");
-      }
+      const { onAuthStateChange } = await import("@/lib/auth");
+      const unsubscribe = onAuthStateChange((user) => {
+        if (user) {
+          setUser(user);
+        } else {
+          router.push("/sign-in");
+        }
+      });
+
+      return () => unsubscribe();
     };
     checkUser();
-  }, [supabase, router]);
+  }, [router]);
 
   const validateFile = (file: File) => {
     setFileError(null);
@@ -114,67 +118,26 @@ export default function UploadResume() {
     setUploadProgress(0);
 
     try {
-      // Check if user has a subscription
-      const { data: subscriptionData } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .maybeSingle();
+      const { getUserSubscription, uploadResume } = await import("@/lib/db");
 
+      // Check if user has a subscription
+      const subscriptionData = await getUserSubscription(user.uid);
       const hasActiveSubscription = !!subscriptionData;
 
-      // Generate a unique filename
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      // Upload file to Supabase Storage
       setUploadProgress(30); // Set initial progress
-      const { error: uploadError, data } = await supabase.storage
-        .from("resumes")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+
+      // Upload file to Firebase Storage and save record in Firestore
+      const { id, file_path } = await uploadResume(user.uid, file);
 
       // Set progress to 70% after upload completes
       setUploadProgress(70);
 
-      if (uploadError) throw uploadError;
-
-      // Get the public URL
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("resumes").getPublicUrl(filePath);
-
-      // Save resume record in the database
-      const { error: dbError, data: resumeData } = await supabase
-        .from("resumes")
-        .insert({
-          user_id: user.id,
-          file_name: file.name,
-          file_path: filePath,
-          file_size: file.size,
-          file_type: file.type,
-          is_analyzed: false,
-          is_enhanced: false,
-        })
-        .select()
-        .single();
-
-      // We'll let the file processor handle the analysis
-      // Don't trigger the analyze-resume API here to avoid duplicate analysis
-      if (resumeData) {
-        console.log("Resume uploaded successfully, ID:", resumeData.id);
-      }
-
-      if (dbError) throw dbError;
+      console.log("Resume uploaded successfully, ID:", id);
 
       // Success - set progress to 100% after database entry is complete
       setUploadSuccess(true);
       setUploadProgress(100);
-      setUploadedResumeId(resumeData.id);
+      setUploadedResumeId(id);
     } catch (error: any) {
       console.error("Upload error:", error);
       setFileError(`Upload failed: ${error.message || "Unknown error"}`);
