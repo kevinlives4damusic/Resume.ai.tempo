@@ -46,6 +46,7 @@ export type Database = {
       }
       resume_analyses: {
         Row: {
+          ai_response: string | null
           ats_compatibility_score: number | null
           completeness_score: number | null
           created_at: string | null
@@ -60,6 +61,7 @@ export type Database = {
           weaknesses: Json | null
         }
         Insert: {
+          ai_response?: string | null
           ats_compatibility_score?: number | null
           completeness_score?: number | null
           created_at?: string | null
@@ -74,6 +76,7 @@ export type Database = {
           weaknesses?: Json | null
         }
         Update: {
+          ai_response?: string | null
           ats_compatibility_score?: number | null
           completeness_score?: number | null
           created_at?: string | null

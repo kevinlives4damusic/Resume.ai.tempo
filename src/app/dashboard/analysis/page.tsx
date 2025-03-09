@@ -25,6 +25,7 @@ import UpgradeButton from "@/components/upgrade-button";
 import ViewCVButton from "@/components/view-cv-button";
 import { analyzeResume } from "@/lib/resume-analyzer";
 import ResumeContentView from "./components/resume-content-view";
+import React from "react";
 import { extractResumeContent } from "@/lib/pdf-extractor";
 
 export default async function ResumeAnalysis() {
@@ -173,8 +174,8 @@ export default async function ResumeAnalysis() {
                     <svg className="w-full h-full" viewBox="0 0 36 36">
                       <path
                         d="M18 2.0845
-                          a 15.9155 15.9155 0 0 1 0 31.831
-                          a 15.9155 15.9155 0 0 1 0 -31.831"
+                        a 15.9155 15.9155 0 0 1 0 31.831
+                        a 15.9155 15.9155 0 0 1 0 -31.831"
                         fill="none"
                         stroke="#eee"
                         strokeWidth="3"
@@ -182,8 +183,8 @@ export default async function ResumeAnalysis() {
                       {resumeAnalysis && (
                         <path
                           d="M18 2.0845
-                            a 15.9155 15.9155 0 0 1 0 31.831
-                            a 15.9155 15.9155 0 0 1 0 -31.831"
+                          a 15.9155 15.9155 0 0 1 0 31.831
+                          a 15.9155 15.9155 0 0 1 0 -31.831"
                           fill="none"
                           stroke="#3b82f6"
                           strokeWidth="3"
@@ -286,8 +287,8 @@ export default async function ResumeAnalysis() {
                     <svg className="w-full h-full" viewBox="0 0 36 36">
                       <path
                         d="M18 2.0845
-                          a 15.9155 15.9155 0 0 1 0 31.831
-                          a 15.9155 15.9155 0 0 1 0 -31.831"
+                        a 15.9155 15.9155 0 0 1 0 31.831
+                        a 15.9155 15.9155 0 0 1 0 -31.831"
                         fill="none"
                         stroke="#eee"
                         strokeWidth="3"
@@ -295,8 +296,8 @@ export default async function ResumeAnalysis() {
                       {resumeAnalysis && (
                         <path
                           d="M18 2.0845
-                            a 15.9155 15.9155 0 0 1 0 31.831
-                            a 15.9155 15.9155 0 0 1 0 -31.831"
+                          a 15.9155 15.9155 0 0 1 0 31.831
+                          a 15.9155 15.9155 0 0 1 0 -31.831"
                           fill="none"
                           stroke={
                             resumeAnalysis.atsScore > 70
@@ -357,6 +358,7 @@ export default async function ResumeAnalysis() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
+                    <div className="w-full h-auto"></div>
                     <div className="space-y-6">
                       <div>
                         <h3 className="text-lg font-medium mb-2">Strengths</h3>
@@ -466,8 +468,15 @@ export default async function ResumeAnalysis() {
                         </h3>
                         <div className="p-4 bg-gray-50 rounded-lg mb-2">
                           <p className="text-gray-700 italic">
-                            {extractedContent?.sections.summary ||
-                              '"Dedicated professional with 5+ years of experience seeking opportunities to apply my skills..."'}
+                            {extractedContent?.sections.summary
+                              ? extractedContent.sections.summary.substring(
+                                  0,
+                                  200,
+                                ) +
+                                (extractedContent.sections.summary.length > 200
+                                  ? "..."
+                                  : "")
+                              : '"Dedicated professional with 5+ years of experience seeking opportunities to apply my skills..."'}
                           </p>
                         </div>
                         <div className="flex items-start gap-2 text-amber-600">

@@ -163,85 +163,10 @@ export default function UploadResume() {
         .select()
         .single();
 
-      // Trigger the resume analysis API
+      // We'll let the file processor handle the analysis
+      // Don't trigger the analyze-resume API here to avoid duplicate analysis
       if (resumeData) {
-        try {
-          const response = await fetch("/api/analyze-resume", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ resumeId: resumeData.id }),
-          });
-
-          if (!response.ok) {
-            console.error("Error analyzing resume:", await response.text());
-          }
-        } catch (analyzeError) {
-          console.error("Error calling analyze API:", analyzeError);
-        }
-
-        // Fallback if API fails - create a basic analysis record
-        const { error: analysisError } = await supabase
-          .from("resume_analyses")
-          .insert({
-            resume_id: resumeData.id,
-            completeness_score: Math.floor(Math.random() * 30) + 50, // Random score between 50-80 for demo
-            technical_skills_score: Math.floor(Math.random() * 30) + 50,
-            soft_skills_score: Math.floor(Math.random() * 30) + 40,
-            keywords_score: Math.floor(Math.random() * 30) + 30,
-            ats_compatibility_score: Math.floor(Math.random() * 30) + 40,
-            strengths: [
-              "Educational background",
-              "Contact information",
-              "Technical skills",
-            ],
-            weaknesses: [
-              "Work experience lacks achievements",
-              "Missing keywords",
-              "Generic summary",
-            ],
-            improvement_suggestions: {
-              highPriority: [
-                {
-                  title: "Add quantifiable achievements",
-                  description: "Include metrics and results",
-                },
-                {
-                  title: "Remove complex formatting",
-                  description: "Use ATS-friendly formatting",
-                },
-                {
-                  title: "Rewrite summary",
-                  description: "Make it specific to your industry",
-                },
-              ],
-              mediumPriority: [
-                {
-                  title: "Add industry keywords",
-                  description: "Include terms from job descriptions",
-                },
-                {
-                  title: "Expand soft skills",
-                  description: "Add examples of demonstrated skills",
-                },
-              ],
-              lowPriority: [
-                {
-                  title: "Standardize date formats",
-                  description: "Use consistent formatting",
-                },
-                {
-                  title: "Condense to 2 pages",
-                  description: "Remove less relevant experiences",
-                },
-              ],
-            },
-          });
-
-        if (analysisError) {
-          console.error("Error creating analysis:", analysisError);
-        }
+        console.log("Resume uploaded successfully, ID:", resumeData.id);
       }
 
       if (dbError) throw dbError;

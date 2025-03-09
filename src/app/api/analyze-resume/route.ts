@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../supabase/server";
 import { extractResumeContent } from "@/lib/pdf-extractor";
+import { analyzeResumeWithAI, parseAIResponse } from "@/lib/ai-service";
 
 export async function POST(request: Request) {
   try {
@@ -67,16 +68,38 @@ export async function POST(request: Request) {
       );
     }
 
-    // Analyze the extracted content
-    // In a real implementation, we would use AI to analyze the content
-    // For now, we'll use the extracted content to generate scores
+    // Use DeepSeek API to analyze the extracted content
+    console.log("Sending extracted text to DeepSeek API for analysis");
+    let analysis;
 
-    // Create a new analysis
-    const { data: newAnalysis, error: createError } = await supabase
-      .from("resume_analyses")
-      .insert({
+    try {
+      // Send the extracted text to the DeepSeek API
+      const aiResponse = await analyzeResumeWithAI(extractedContent.text);
+      console.log("Received AI response from DeepSeek");
+
+      // Parse the AI response
+      const parsedResponse = await parseAIResponse(aiResponse);
+
+      if (parsedResponse) {
+        analysis = {
+          resume_id: resumeId,
+          completeness_score: parsedResponse.completenessScore,
+          technical_skills_score: parsedResponse.skillsMatch.technical,
+          soft_skills_score: parsedResponse.skillsMatch.soft,
+          keywords_score: parsedResponse.skillsMatch.keywords,
+          ats_compatibility_score: parsedResponse.atsScore,
+          strengths: parsedResponse.strengths,
+          weaknesses: parsedResponse.weaknesses,
+          improvement_suggestions: parsedResponse.improvementSuggestions,
+          ai_response: aiResponse,
+        };
+      }
+    } catch (aiError) {
+      console.error("Error using DeepSeek API:", aiError);
+      // Fallback to basic analysis if AI fails
+      analysis = {
         resume_id: resumeId,
-        completeness_score: Math.floor(Math.random() * 30) + 50, // Random score between 50-80 for demo
+        completeness_score: Math.floor(Math.random() * 30) + 50,
         technical_skills_score: Math.floor(Math.random() * 30) + 50,
         soft_skills_score: Math.floor(Math.random() * 30) + 40,
         keywords_score: Math.floor(Math.random() * 30) + 30,
@@ -127,7 +150,13 @@ export async function POST(request: Request) {
             },
           ],
         },
-      })
+      };
+    }
+
+    // Create a new analysis
+    const { data: newAnalysis, error: createError } = await supabase
+      .from("resume_analyses")
+      .insert(analysis)
       .select()
       .single();
 

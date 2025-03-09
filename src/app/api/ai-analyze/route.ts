@@ -41,8 +41,22 @@ export async function POST(request: Request) {
     // Send the extracted content to the DeepSeek AI service for analysis
     let analysis;
     try {
+      // Make sure we have text to analyze
+      const textToAnalyze =
+        extractedContent.text || "Error extracting text from PDF";
+
+      console.log(
+        "Sending extracted text to AI API:",
+        textToAnalyze.substring(0, 200) + "...",
+      );
+
       // Call the DeepSeek AI API with the extracted text
-      const aiResponse = await analyzeResumeWithAI(extractedContent.text);
+      const aiResponse = await analyzeResumeWithAI(textToAnalyze);
+
+      console.log(
+        "Received AI response:",
+        aiResponse.substring(0, 200) + "...",
+      );
 
       // Parse the AI response into a structured format
       const parsedResponse = await parseAIResponse(aiResponse);
